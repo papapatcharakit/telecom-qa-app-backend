@@ -31,7 +31,7 @@ class Database:
     def set_database(self, database):
         self.database = database
 
-    def get_unanswer_question(self):
+    def get_unanswer_question(self): #mark
         mydb = mysql.connector.connect(host = self.host, user = self.user, passwd = self.password, database = self.database)
 
     
@@ -394,10 +394,6 @@ class QARetriever:
 
                 # insert unanswerable question to db
                 self.database.insert_unanswerable_question_to_db(question)
-
-                # Here if else
-
-                
 
                 answer = "ขออภัย ไม่สามารถตอบคำถามนี้ได้ กรุณาถามคำถามใหม่ หรือติดต่อธุรการภาควิชาโทรคมนาคม"
 
