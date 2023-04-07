@@ -1,0 +1,14 @@
+venv
+.DS_Store
+env
+__pycache__
+Almost_completelyFullQA.py
+Almost_completelyFullQA_2.py
+QA full system.py
+test_.py
+test.py
+*.xlsx
+heroku.yml
+app/model
+
+
