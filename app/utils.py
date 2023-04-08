@@ -1,12 +1,17 @@
 from transformers import AutoModelForQuestionAnswering, AutoTokenizer, pipeline
 from pythainlp import word_tokenize, Tokenizer
 from pythainlp.corpus import thai_stopwords
+from pythainlp.word_vector import *
+from sklearn.metrics.pairwise import cosine_similarity
 from rank_bm25 import BM25Okapi
 import numpy as np
 import mysql.connector
 import requests # test
 from mysql.connector import errorcode
 import os
+import fuzzywuzzy
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
 
 class Database:
     
@@ -32,9 +37,18 @@ class Database:
         self.database = database
 
     def get_unanswer_question(self): #mark
-        mydb = mysql.connector.connect(host = self.host, user = self.user, passwd = self.password, database = self.database)
+        # mydb = mysql.connector.connect(host = self.host, user = self.user, passwd = self.password, database = self.database)
+        self.mycursor.execute("SELECT * FROM telecom_qa_db.unanswerable_question")
 
-    
+        myresult = self.mycursor.fetchall()
+        # print(myresult)
+
+        # Grab question
+        unanswer = [dt[1] for dt in myresult]
+        # print("unanswer : ", unanswer)
+
+        return unanswer
+
     def get_context_from_db(self):
 
         mydb = mysql.connector.connect(host = self.host, user = self.user, passwd = self.password, database = self.database)
@@ -167,6 +181,8 @@ class QARetriever:
         self.database = Database() ##
         # self.best_answer = None # best score w/ best answer
         self.condition = False
+        self.unanswers = None
+        self.similarity = Similarity()
         
     def set_question(self, question): # with api part
         self.question = question
@@ -196,7 +212,32 @@ class QARetriever:
             pass
 
         self.thanks = just_thanks
-        
+
+    def preprocess_unanswer(self): #mark
+        unanswers = self.database.get_unanswer_question()
+
+        # set unanswers
+        self.unanswers = unanswers
+
+        # preprocess retrievered unanswerable quest
+        already_ = []
+
+        for each_ in unanswers:
+            decode_ = []
+            token_ = self.tokenizer(each_).input_ids
+            token_ = token_[1:-1:]
+            for ws in token_:
+                if ws ==  10:
+                    pass
+                else:
+                    decode = self.tokenizer.decode(ws)
+                    decode_.append(decode)
+            already_.append(decode_)
+            del decode_
+
+        return already_
+
+     
     def set_preprocessed_contexts(self):
         self.preprocessed_contexts = self.preprocess_contexts()
 
@@ -206,7 +247,6 @@ class QARetriever:
     def preprocess_query(self, question):
 
         # start changing
-
         token_question = self.tokenizer(question).input_ids
         token_question = token_question[1:-1:] #remove special token
 
@@ -293,6 +333,26 @@ class QARetriever:
         # print("\n\n")
         
         return ranked_contexts
+
+    def unanswer_check(self): #mark
+
+        already_ = self.preprocess_unanswer()
+
+        bm25 = BM250kapi(already_)
+
+        doc_scores = bm25.get_scores(self.preprocessed_question)
+        
+        ranked_ = bm25.get_top_n(self.preprocessed_question, self.unanswers, n=1)
+        
+        top_n_score = np.flip(np.sort(doc_scores))
+
+        # query    
+        Str_A = self.question
+        # ranked unanswer
+        Str_B = ranked_
+
+        ratio = fuzz.ratio(Str_A.lower(), Str_B.lower())
+        print('Similarity score: {}'.format(ratio))
 
     def get_best_answers(self): 
 
@@ -393,19 +453,36 @@ class QARetriever:
                 # print("Loggingggggggg_")
 
                 # insert unanswerable question to db
-                self.database.insert_unanswerable_question_to_db(question)
 
-                answer = "ขออภัย ไม่สามารถตอบคำถามนี้ได้ กรุณาถามคำถามใหม่ หรือติดต่อธุรการภาควิชาโทรคมนาคม"
+                '''
+                TODO: #1 find similiar question in database
+                TODO: #2 if found the question that have score more than specified threshold (idk maybe you can apply similarity function during query)
+                         should change the answer to the new one
+                TODO: #3 else insert the answer to unanswerable question db
+                '''
+                print(question)
+                questions_ = self.database.get_unanswer_question()
+                # answers_ = self.preprocess_unanswer()
 
+                questions = [ { 'score': self.similarity.sentence_similarity(question, x), 'u_question': x } for x in questions_]
 
-        
+                # if u_question is not none
+                if len(questions):
+                    best_unanswerable_question = sorted(questions, key=lambda x: x['score'], reverse=True)[0]
+                    print(best_unanswerable_question)
+                    score, u_question = best_unanswerable_question['score'], best_unanswerable_question['u_question']
+
+                    # threshold 
+                    if(score > 0.5):
+                        answer = "ขออภัย ไม่สามารถตอบคำถามนี้ได้ กรุณาถามคำถามใหม่ หรือติดต่อธุรการภาควิชาโทรคมนาคม"
+                    else:
+                        self.database.insert_unanswerable_question_to_db(question)
+                        answer = "ขออภัย ไม่สามารถตอบคำถามนี้ได้"
             else:
                 answer = best_answer[1] # best text answer
 
 
         # end changing
-
-        
         return answer
 
 
@@ -453,11 +530,37 @@ class QARetriever:
 
     def set_condition(self, condition):
         self.condition = condition
-            
-        
+
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+class Similarity:
+
+    def __init__(self):
+        # self.model = get_model()
+
+        # Create a TF-IDF vectorizer
+        self.vectorizer = TfidfVectorizer()
+
+    def sentence_vectorizer(self, ss, dim=300, use_mean=True): # ประกาศฟังก์ชัน sentence_vectorizer
+        s = word_tokenize(ss)
+        vec = np.zeros((1, dim))
+
+        for word in s:
+            if word in self.model.wv.index2word:
+                vec+= self.model.wv.word_vec(word)
+            else: 
+                pass
+        if use_mean: vec /= len(s)
+        return vec
+
+    def sentence_similarity(self, s1,s2):
+        sentences = [s1, s2]
+        tfidf_matrix = self.vectorizer.fit_transform(sentences)
+        similarity_matrix = cosine_similarity(tfidf_matrix)
+        return similarity_matrix[0][1]
     
-        
-        
+
         
         
         
