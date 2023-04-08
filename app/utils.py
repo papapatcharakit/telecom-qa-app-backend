@@ -460,7 +460,6 @@ class QARetriever:
                          should change the answer to the new one
                 TODO: #3 else insert the answer to unanswerable question db
                 '''
-                print(question)
                 questions_ = self.database.get_unanswer_question()
                 # answers_ = self.preprocess_unanswer()
 
@@ -469,7 +468,6 @@ class QARetriever:
                 # if u_question is not none
                 if len(questions):
                     best_unanswerable_question = sorted(questions, key=lambda x: x['score'], reverse=True)[0]
-                    print(best_unanswerable_question)
                     score, u_question = best_unanswerable_question['score'], best_unanswerable_question['u_question']
 
                     # threshold 
