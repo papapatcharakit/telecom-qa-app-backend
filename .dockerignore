@@ -24,6 +24,7 @@ coverage.xml
 
 app/model/BestQAModel
 app/model/finetune_11_03_2023_multilinguamodel-round2
+app/model/WangchanBERTa_with_3_datasets(adddataset)
 *.xlsx
 Almost_completelyFullQA.py
 Almost_completelyFullQA_2.py
