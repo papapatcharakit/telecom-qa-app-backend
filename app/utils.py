@@ -99,7 +99,7 @@ class Database:
     
 class QAReaderModel:
     
-    def __init__(self, model_path= os.getcwd()+"/app/model/finetune_11_03_2023_multilinguamodel-round3-hugedataset"):
+    def __init__(self, model_path= os.getcwd()+"/app/model/finetune_11_03_2023_multilinguamodel-round3-hugedataset/"):
         """_summary_
 
         Args:
@@ -132,11 +132,10 @@ class QAReaderModel:
         """
 
         model = AutoModelForQuestionAnswering.from_pretrained(model_path)
-        print("modellllllll : ", model)
+        # print("modellllllll : ", model)
 
-        # model = AutoModelForQuestionAnswering.from_pretrained(model_path)
-        tokenizer = AutoTokenizer.from_pretrained(model_path)   
-        print("tokenizerrrrrrrrr : ", tokenizer)     
+        tokenizer = AutoTokenizer.from_pretrained(model_path)  
+        # print("tokenizerrrrrrrrr : ", tokenizer)     
         
         return model, tokenizer
     
@@ -158,7 +157,7 @@ class QAReaderModel:
     
 class QARetriever:
     
-    def __init__(self, model_path=os.getcwd()+"/app/model/finetune_11_03_2023_multilinguamodel-round3-hugedataset"):
+    def __init__(self, model_path=os.getcwd()+"/app/model/finetune_11_03_2023_multilinguamodel-round3-hugedataset/"):
         """
         Define a QA Retriever model.
         Search for the associated context and return the best answer.
@@ -446,7 +445,7 @@ class QARetriever:
 
             print("softmaxxxxxxxx: ", softmax_score)
             
-            threshold = 0.5
+            threshold = 0.3
 
             if softmax_score < threshold:
 
@@ -464,6 +463,7 @@ class QARetriever:
                 # answers_ = self.preprocess_unanswer()
 
                 questions = [ { 'score': self.similarity.sentence_similarity(question, x), 'u_question': x } for x in questions_]
+                # print("questionsssss : ", questions)
 
                 # if u_question is not none
                 if len(questions):
@@ -540,7 +540,7 @@ class Similarity:
         # Create a TF-IDF vectorizer
         self.vectorizer = TfidfVectorizer()
 
-    def sentence_vectorizer(self, ss, dim=300, use_mean=True): # ประกาศฟังก์ชัน sentence_vectorizer
+    def sentence_vectorizer(self, ss, dim=300, use_mean=True): 
         s = word_tokenize(ss)
         vec = np.zeros((1, dim))
 
@@ -552,7 +552,7 @@ class Similarity:
         if use_mean: vec /= len(s)
         return vec
 
-    def sentence_similarity(self, s1,s2):
+    def sentence_similarity(self, s1, s2):
         sentences = [s1, s2]
         tfidf_matrix = self.vectorizer.fit_transform(sentences)
         similarity_matrix = cosine_similarity(tfidf_matrix)
